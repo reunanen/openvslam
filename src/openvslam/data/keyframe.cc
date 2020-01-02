@@ -116,6 +116,7 @@ nlohmann::json keyframe::to_json() const {
             {"cam", camera_->name_},
             {"depth_thr", depth_thr_},
             // camera pose
+            {"cam_center", {cam_center_(0), cam_center_(1), cam_center_(2)}},
             {"rot_cw", convert_rotation_to_json(cam_pose_cw_.block<3, 3>(0, 0))},
             {"trans_cw", convert_translation_to_json(cam_pose_cw_.block<3, 1>(0, 3))},
             // features and observations
