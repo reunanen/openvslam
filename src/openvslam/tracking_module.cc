@@ -147,7 +147,7 @@ void tracking_module::reset() {
     bow_db_->clear();
     map_db_->clear();
 
-    data::frame::next_id_ = 0;
+    //data::frame::next_id_ = 0;
     data::keyframe::next_id_ = 0;
     data::landmark::next_id_ = 0;
 
