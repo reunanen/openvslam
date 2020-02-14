@@ -27,7 +27,7 @@
 
 void mono_tracking(const std::shared_ptr<openvslam::config>& cfg,
                    const std::string& vocab_file_path, const std::string& video_file_path, const std::string& mask_img_path,
-                   const unsigned int frame_skip, const bool no_sleep, const bool auto_term,
+                   const unsigned int frame_skip, const unsigned int initial_frame_skip, const bool no_sleep, const bool auto_term,
                    const bool eval_log, const std::string& map_db_path) {
     // load the mask image
     const cv::Mat mask = mask_img_path.empty() ? cv::Mat{} : cv::imread(mask_img_path, cv::IMREAD_GRAYSCALE);
@@ -54,6 +54,25 @@ void mono_tracking(const std::shared_ptr<openvslam::config>& cfg,
     unsigned int num_frame = 0;
 
     bool is_not_end = true;
+
+    if (initial_frame_skip > 0) {
+        int skipped = 0;
+        std::unique_ptr<std::chrono::steady_clock::time_point> last_printed;
+        const auto print = [](int skipped) {
+            std::cout << "\rSkipped " << skipped << " frame" << ((skipped == 1) ? "" : "s");
+        };
+        for (; skipped < initial_frame_skip && is_not_end; ++skipped) {
+            is_not_end = video.read(frame);
+            const auto now = std::chrono::steady_clock::now();
+            if (last_printed.get() == nullptr || now - *last_printed >= std::chrono::milliseconds(500)) {
+                print(skipped + 1);
+                last_printed = std::make_unique<std::chrono::steady_clock::time_point>(now);
+            }
+        }
+        print(skipped);
+        std::cout << std::endl;
+    }
+
     // run the SLAM in another thread
     std::thread thread([&]() {
         while (is_not_end) {
@@ -158,6 +177,7 @@ int main(int argc, char* argv[]) {
     auto config_file_path = op.add<popl::Value<std::string>>("c", "config", "config file path");
     auto mask_img_path = op.add<popl::Value<std::string>>("", "mask", "mask image path", "");
     auto frame_skip = op.add<popl::Value<unsigned int>>("", "frame-skip", "interval of frame skip", 1);
+    auto initial_frame_skip = op.add<popl::Value<unsigned int>>("", "initial-frame-skip", "skip a number of frames in the beginning", 0);
     auto no_sleep = op.add<popl::Switch>("", "no-sleep", "not wait for next frame in real time");
     auto auto_term = op.add<popl::Switch>("", "auto-term", "automatically terminate the viewer");
     auto debug_mode = op.add<popl::Switch>("", "debug", "debug mode");
@@ -211,7 +231,7 @@ int main(int argc, char* argv[]) {
     // run tracking
     if (cfg->camera_->setup_type_ == openvslam::camera::setup_type_t::Monocular) {
         mono_tracking(cfg, vocab_file_path->value(), video_file_path->value(), mask_img_path->value(),
-                      frame_skip->value(), no_sleep->is_set(), auto_term->is_set(),
+                      frame_skip->value(), initial_frame_skip->value(), no_sleep->is_set(), auto_term->is_set(),
                       eval_log->is_set(), map_db_path->value());
     }
     else {
